@@ -19,7 +19,7 @@ android {
     signingConfigs {
         release {
             def homeDir = System.getProperty("user.home")
-            def propsFile = file("${homeDir}/keystore.properties")
+            def propsFile = file("${homeDir}/keystore-properties")
             if (propsFile.exists()) {
                 def props = new Properties()
                 props.load(new FileInputStream(propsFile))
