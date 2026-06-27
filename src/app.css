@@ -317,14 +317,16 @@ html, body {
   flex-shrink: 0;
 }
 
-@media (max-width: 768px) {
+@media (hover: none) and (pointer: coarse) {
   .shortcuts-help {
     display: none;
   }
   .mobile-touch-hint {
     display: block;
   }
+}
 
+@media (max-width: 768px) {
   .page-nav {
     flex-direction: column;
     gap: 6px;
