@@ -51,6 +51,9 @@ html, body {
   color: var(--text);
   font-family: sans-serif;
   overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
 }
 
 .page-container {
@@ -98,6 +101,7 @@ html, body {
   justify-content: center;
   overflow: hidden;
   line-height: 0;
+  touch-action: manipulation;
 }
 
 .svg-container [id^="md-non-quranic-margin"] {
