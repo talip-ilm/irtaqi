@@ -68,8 +68,13 @@ html, body {
 }
 
 @media (display-mode: browser) {
+  .svg-container {
+    overflow: visible;
+  }
   .svg-container svg {
     overflow: visible;
+    max-width: 92% !important;
+    max-height: 92% !important;
   }
 }
 
