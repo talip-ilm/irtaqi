@@ -4,8 +4,9 @@
   import PageNav from './components/PageNav.svelte';
   import DownloadScreen from './components/DownloadScreen.svelte';
   import { getNextAyahEnd, getPrevAyahStart, fetchPageSVG } from './lib/svgApi.js';
-  import { getSurahList } from './lib/surahs.js';
-  import { checkDownloaded } from './lib/downloadManager.js';
+  import { getSurahList, findSurahByPage } from './lib/surahs.js';
+  import { checkDownloaded, startDownload } from './lib/downloadManager.js';
+  import { clearAllPages, getStoredPageCount } from './lib/storage.js';
   import { TOTAL_PAGES } from './lib/constants.js';
   const SWIPE_THRESHOLD = 50;
   const TAP_MAX_DIST = 10;
@@ -24,16 +25,20 @@
   let showOverlay = $state(false);
   let pendingMode = 'restore';
   let isTouchDevice = $state(false);
-  let navOverlayMode = $state(null);
-  let navOverlayEl = $state(null);
   let shortcutOverlayEl = $state(null);
+  let showNavMenu = $state(false);
+  let targetPage = $state(1);
+  let showSettings = $state(false);
+  let deferredPrompt = $state(null);
+  let showInstallBanner = $state(false);
+  let isDownloading = $state(false);
+  let downloadProgress = $state(0);
+  let pagesDownloaded = $state(0);
+  let isDownloaded = $derived(pagesDownloaded >= TOTAL_PAGES);
 
-  $effect(() => {
-    if (navOverlayMode && navOverlayEl) {
-      const first = navOverlayEl.querySelector('button');
-      if (first) first.focus();
-    }
-  });
+  let menuSurah = $derived(findSurahByPage(targetPage).number);
+  let menuJuz = $derived(Math.min(30, Math.floor((targetPage - 1) / 20) + 1));
+  let menuPage = $derived(targetPage);
 
   $effect(() => {
     if (showOverlay && shortcutOverlayEl) {
@@ -85,10 +90,25 @@
 
     const isNative = typeof window.Capacitor?.isNativePlatform === 'function' && window.Capacitor.isNativePlatform();
     if (isNative) {
-      checkDownloaded().then((ok) => { downloadReady = ok; });
+      checkDownloaded().then((ok) => { downloadReady = ok; pagesDownloaded = ok ? TOTAL_PAGES : 0; });
     } else {
       downloadReady = true;
+      checkDownloaded().then((ok) => { pagesDownloaded = ok ? TOTAL_PAGES : 0; });
     }
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      if (!localStorage.getItem('quran-install-dismissed')) {
+        showInstallBanner = true;
+      }
+    });
+
+    window.addEventListener('appinstalled', () => {
+      showInstallBanner = false;
+      deferredPrompt = null;
+      localStorage.removeItem('quran-install-dismissed');
+    });
   });
 
   function onDownloadComplete() {
@@ -114,8 +134,11 @@
   function preloadAdjacent(page) {
     clearTimeout(preloadTimer);
     preloadTimer = setTimeout(() => {
-      if (page > 1) fetchPageSVG(page - 1).catch(() => {});
-      if (page < TOTAL_PAGES) fetchPageSVG(page + 1).catch(() => {});
+      for (let p = page - 2; p <= page + 2; p++) {
+        if (p >= 1 && p <= TOTAL_PAGES && p !== page) {
+          fetchPageSVG(p).catch(() => {});
+        }
+      }
     }, 500);
   }
 
@@ -183,6 +206,7 @@
       e.preventDefault();
       eyeOpen = false;
       activeRevealed = -1;
+      pageStates.clear();
       persistState();
     } else if (e.key === 's') {
       e.preventDefault();
@@ -207,7 +231,6 @@
 
   function onTouchStart(e) {
     if (loadingPage) return;
-    if (e.target.closest('[data-nav-click]')) return;
     const tag = e.target.tagName;
     if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || tag === 'BUTTON' || e.target.closest('button')) return;
     if (e.touches.length !== 1) return;
@@ -304,24 +327,77 @@
     persistState();
   }
 
-  function onNavigateClick(mode) {
-    navOverlayMode = mode;
+  function openNavMenu() {
+    targetPage = activePage;
+    showNavMenu = true;
   }
 
-  function closeNavOverlay() {
-    navOverlayMode = null;
+  function closeNavMenu() {
+    showNavMenu = false;
   }
 
-  function selectNavOption(mode, value) {
-    if (mode === 'surah') {
-      const s = surahs.find((s) => s.number === value);
-      if (s && s.startPage) goToPage(s.startPage);
-    } else if (mode === 'juz') {
-      goToPage((value - 1) * 20 + 1);
-    } else if (mode === 'page') {
-      goToPage(value);
+  function onMenuSurahChange(e) {
+    const s = surahs.find((s) => s.number === parseInt(e.target.value));
+    if (s && s.startPage) targetPage = s.startPage;
+  }
+
+  function onMenuJuzChange(e) {
+    const j = parseInt(e.target.value);
+    if (j) targetPage = (j - 1) * 20 + 1;
+  }
+
+  function onMenuPageChange(e) {
+    const p = parseInt(e.target.value);
+    if (p >= 1 && p <= TOTAL_PAGES) targetPage = p;
+  }
+
+  function goToNavTarget() {
+    goToPage(targetPage);
+    showNavMenu = false;
+  }
+
+  function openSettings() {
+    showSettings = true;
+  }
+
+  function closeSettings() {
+    showSettings = false;
+  }
+
+  async function startDownloadAll() {
+    if (isDownloading) return;
+    isDownloading = true;
+    downloadProgress = 0;
+    try {
+      await startDownload(
+        (done) => { downloadProgress = done; },
+        (page, msg) => { console.error('Download error page', page, msg); }
+      );
+      pagesDownloaded = TOTAL_PAGES;
+    } catch (e) {
+      console.error('Download failed', e);
     }
-    navOverlayMode = null;
+    isDownloading = false;
+  }
+
+  async function deleteAllPages() {
+    if (isDownloading) return;
+    await clearAllPages();
+    pagesDownloaded = 0;
+  }
+
+  async function handleInstall() {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    showInstallBanner = false;
+  }
+
+  function dismissInstallBanner() {
+    showInstallBanner = false;
+    deferredPrompt = null;
+    localStorage.setItem('quran-install-dismissed', '1');
   }
 
   function trapFocus(e, container) {
@@ -346,6 +422,7 @@
       activeRevealed = activeLayout.totalWords - 1;
     } else {
       activeRevealed = -1;
+      pageStates.clear();
     }
     persistState();
   }
@@ -386,7 +463,7 @@
     ontouchmove={onTouchMove}
     ontouchend={onTouchEnd}
   >
-    <MushafPage pageNumber={activePage} revealedUpto={activeRevealed} onLoaded={onPageLoaded} enableNavClicks={isTouchDevice} onNavigateClick={onNavigateClick} />
+    <MushafPage pageNumber={activePage} revealedUpto={activeRevealed} onLoaded={onPageLoaded} />
   </div>
 
   {#if !isTouchDevice}
@@ -399,6 +476,7 @@
       {darkTheme}
       onToggleAll={handleToggleAll}
       onToggleTheme={handleToggleTheme}
+      onOpenNavMenu={openNavMenu}
     />
 
     <div class="shortcuts-help">
@@ -413,6 +491,12 @@
 
   {#if isTouchDevice}
     <div class="floating-toggles">
+      <button class="float-btn" onclick={openNavMenu} title="Open navigation">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" fill="currentColor"/>
+        </svg>
+      </button>
       <button class="float-btn" onclick={handleToggleAll} title={eyeOpen ? 'Hide all' : 'Show all'}>
         {#if eyeOpen}
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -454,38 +538,86 @@
     Tap left/right to step &middot; long-press for ayah &middot; swipe to change page
   </div>
 
-  {#if navOverlayMode}
-    <div class="overlay-backdrop" onclick={closeNavOverlay} onkeydown={(e) => e.key === 'Escape' && closeNavOverlay()} role="presentation">
-      <!-- svelte-ignore a11y_autofocus -->
-      <div class="overlay-card overlay-card-nav" tabindex="-1" bind:this={navOverlayEl} onclick={(e) => e.stopPropagation()} onkeydown={(e) => { e.key === 'Tab' && trapFocus(e, e.currentTarget); e.stopPropagation(); }} role="dialog" aria-modal="true">
-        <h2>
-          {#if navOverlayMode === 'surah'}Select Surah
-          {:else if navOverlayMode === 'juz'}Select Juz
-          {:else}Select Page
-          {/if}
-        </h2>
-        <div class="nav-overlay-list">
-          {#if navOverlayMode === 'surah'}
+  <button class="settings-btn" onclick={openSettings} title="Settings">
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </svg>
+  </button>
+
+  {#if showNavMenu}
+    <div class="nav-menu-backdrop" onclick={closeNavMenu} onkeydown={(e) => e.key === 'Escape' && closeNavMenu()} role="presentation">
+      <!-- svelte-ignore a11y_click_events_have_key_events -->
+      <div class="nav-menu" tabindex="-1" onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+        <div class="nav-menu-field">
+          <span class="nav-menu-label">Surah</span>
+          <select class="nav-menu-select" value={menuSurah} onchange={onMenuSurahChange}>
             {#each surahs as s}
-              <button class="nav-overlay-item" onclick={() => selectNavOption('surah', s.number)}>
-                {s.number}. {s.name}
-              </button>
+              <option value={s.number}>{s.number}. {s.name}</option>
             {/each}
-          {:else if navOverlayMode === 'juz'}
-            {#each Array.from({ length: 30 }, (_, i) => i + 1) as juz}
-              <button class="nav-overlay-item" onclick={() => selectNavOption('juz', juz)}>
-                Juz {juz}
-              </button>
+          </select>
+        </div>
+        <div class="nav-menu-field">
+          <span class="nav-menu-label">Juz</span>
+          <select class="nav-menu-select" value={menuJuz} onchange={onMenuJuzChange}>
+            {#each Array.from({ length: 30 }, (_, i) => i + 1) as j}
+              <option value={j}>Juz {j}</option>
             {/each}
+          </select>
+        </div>
+        <div class="nav-menu-field">
+          <span class="nav-menu-label">Page</span>
+          <select class="nav-menu-select" value={menuPage} onchange={onMenuPageChange}>
+            {#each Array.from({ length: TOTAL_PAGES }, (_, i) => i + 1) as p}
+              <option value={p}>Page {p}</option>
+            {/each}
+          </select>
+        </div>
+        <button class="nav-menu-go" onclick={goToNavTarget}>Go</button>
+      </div>
+    </div>
+  {/if}
+
+  {#if showSettings}
+    <div class="nav-menu-backdrop" onclick={closeSettings} onkeydown={(e) => e.key === 'Escape' && closeSettings()} role="presentation">
+      <!-- svelte-ignore a11y_click_events_have_key_events -->
+      <div class="nav-menu" tabindex="-1" onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+        <h2 class="nav-menu-heading">Settings</h2>
+
+        <div class="settings-section">
+          <p class="settings-section-title">Offline Storage</p>
+          {#if isDownloading}
+            <div class="ds-bar-track">
+              <div class="ds-bar-fill" style="width: {downloadProgress / TOTAL_PAGES * 100}%"></div>
+            </div>
+            <p class="settings-status">{downloadProgress} / {TOTAL_PAGES} pages</p>
+          {:else if isDownloaded}
+            <p class="settings-status settings-ok">All 604 pages cached</p>
+            <button class="nav-menu-go nav-menu-go-danger" onclick={deleteAllPages}>Delete Downloaded Pages</button>
           {:else}
-            {#each Array.from({ length: 604 }, (_, i) => i + 1) as p}
-              <button class="nav-overlay-item" onclick={() => selectNavOption('page', p)}>
-                Page {p}
-              </button>
-            {/each}
+            <button class="nav-menu-go" onclick={startDownloadAll}>Download All 604 Pages</button>
+            <p class="settings-status">Pages will be cached for offline reading</p>
           {/if}
         </div>
-        <button class="overlay-close" onclick={closeNavOverlay}>Close</button>
+
+        <div class="settings-section">
+          <p class="settings-section-title">Appearance</p>
+          <button class="nav-menu-go nav-menu-go-secondary" onclick={handleToggleTheme}>
+            Switch to {darkTheme ? 'Light' : 'Dark'} Mode
+          </button>
+        </div>
+
+        <button class="nav-menu-go nav-menu-go-secondary" onclick={closeSettings}>Close</button>
+      </div>
+    </div>
+  {/if}
+
+  {#if showInstallBanner}
+    <div class="install-banner">
+      <span class="install-banner-text">Install Irtaqi for offline access</span>
+      <div class="install-banner-actions">
+        <button class="install-btn install-btn-primary" onclick={handleInstall}>Install</button>
+        <button class="install-btn install-btn-dismiss" onclick={dismissInstallBanner}>Not now</button>
       </div>
     </div>
   {/if}

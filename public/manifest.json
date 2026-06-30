@@ -2,7 +2,7 @@
   "name": "Irtaqi",
   "short_name": "Irtaqi",
   "description": "Quran memorization with word-by-word reveal",
-  "display": "standalone",
+  "display": "fullscreen",
   "start_url": ".",
   "background_color": "#000000",
   "theme_color": "#000000",

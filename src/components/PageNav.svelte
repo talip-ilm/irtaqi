@@ -1,7 +1,7 @@
 <script>
   import { findSurahByPage } from '../lib/surahs.js';
 
-  let { currentPage = 1, totalPages = 604, surahs = [], onPageChange, eyeOpen = false, onToggleAll, darkTheme = true, onToggleTheme } = $props();
+  let { currentPage = 1, totalPages = 604, surahs = [], onPageChange, eyeOpen = false, onToggleAll, darkTheme = true, onToggleTheme, onOpenNavMenu } = $props();
 
   let currentJuz = $derived(Math.min(30, Math.floor((currentPage - 1) / 20) + 1));
   let currentSurah = $derived(findSurahByPage(currentPage).number);
@@ -62,6 +62,12 @@
   </div>
 
   <div class="nav-buttons">
+    <button class="nav-btn nav-btn-nav" onclick={onOpenNavMenu} title="Open navigation">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" fill="currentColor"/>
+      </svg>
+    </button>
     <button class="nav-btn nav-btn-eye" onclick={onToggleAll} title={eyeOpen ? 'Hide all' : 'Show all'}>
       {#if eyeOpen}
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">

@@ -1,7 +1,7 @@
 <script>
   import { fetchPageSVG, parsePageSVG } from '../lib/svgApi.js';
 
-  let { pageNumber = 1, revealedUpto = -1, onLoaded = null, enableNavClicks = false, onNavigateClick = null } = $props();
+  let { pageNumber = 1, revealedUpto = -1, onLoaded = null } = $props();
 
   let svgContainer = $state(null);
   let wordIds = $state([]);
@@ -23,21 +23,20 @@
   async function loadPage(num) {
     loadingPage = num;
     cleanupObserver();
-    isLoading = true;
     loadError = false;
-    wordIds = [];
-    wordIndexMap = new Map();
     try {
       const svgText = await fetchPageSVG(num);
       if (loadingPage !== num) return;
       if (!svgContainer) return;
       const doc = new DOMParser().parseFromString(svgText, 'image/svg+xml');
       doc.querySelectorAll('script, [onload], [onerror], [onclick], [onfocus], [onblur], [oninput], [onchange]').forEach(el => el.remove());
+      wordIds = [];
+      wordIndexMap = new Map();
+      lastUpto = -2;
       svgContainer.innerHTML = new XMLSerializer().serializeToString(doc.documentElement);
       requestAnimationFrame(() => {
         cropToContent(svgContainer);
         fitSVG(svgContainer);
-        if (enableNavClicks) attachNavClicks();
       });
       setupObserver();
       const parsed = parsePageSVG(svgText);
@@ -49,7 +48,6 @@
       console.error('Failed to load SVG page', num, e);
       loadError = true;
     }
-    isLoading = false;
   }
 
   function cropToContent(container) {
@@ -138,40 +136,6 @@
     if (resizeObserver) {
       resizeObserver.disconnect();
       resizeObserver = null;
-    }
-  }
-
-  function attachNavClicks() {
-    if (!svgContainer) return;
-    const svg = svgContainer.querySelector('svg');
-    if (svg) svg.style.overflow = 'visible';
-    const items = [
-      { id: '#md-non-quranic-header-surah-name', mode: 'surah' },
-      { id: '#md-non-quranic-header-juz-name', mode: 'juz' },
-      { id: '#md-non-quranic-page-number', mode: 'page' },
-    ];
-    const ns = 'http://www.w3.org/2000/svg';
-    for (const { id, mode } of items) {
-      const el = svgContainer.querySelector(id);
-      if (el) {
-        const bbox = el.getBBox();
-        const padH = 24;
-        const [padTop, padBottom] = mode === 'page' ? [16, 32] : [32, 16];
-        const rect = document.createElementNS(ns, 'rect');
-        rect.setAttribute('x', bbox.x - padH);
-        rect.setAttribute('y', bbox.y - padTop);
-        rect.setAttribute('width', bbox.width + padH * 2);
-        rect.setAttribute('height', bbox.height + padTop + padBottom);
-        rect.setAttribute('fill', 'transparent');
-        rect.setAttribute('pointer-events', 'fill');
-        rect.setAttribute('data-nav-click', 'true');
-        rect.style.cursor = 'pointer';
-        rect.addEventListener('click', (e) => {
-          e.stopPropagation();
-          onNavigateClick?.(mode);
-        });
-        el.parentNode.insertBefore(rect, el.nextSibling);
-      }
     }
   }
 
