@@ -49,6 +49,7 @@
   const pageStates = new Map();
 
   let activeJuz = $derived(Math.min(30, Math.floor((activePage - 1) / 20) + 1));
+  let currentSurah = $derived(findSurahByPage(activePage));
 
   let pageContainerEl = $state(null);
   let touchStart = null;
@@ -463,7 +464,14 @@
     ontouchmove={onTouchMove}
     ontouchend={onTouchEnd}
   >
-    <MushafPage pageNumber={activePage} revealedUpto={activeRevealed} onLoaded={onPageLoaded} />
+    <div class="page-stack">
+      <MushafPage pageNumber={activePage} revealedUpto={activeRevealed} onLoaded={onPageLoaded} />
+      <div class="mushaf-header">
+        <span class="mushaf-header-left">{currentSurah.number}. {currentSurah.name}</span>
+        <span class="mushaf-header-right">Juz {activeJuz}</span>
+      </div>
+      <div class="mushaf-footer">{currentSurah.number}</div>
+    </div>
   </div>
 
   {#if !isTouchDevice}
