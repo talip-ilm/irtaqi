@@ -69,7 +69,7 @@ html, body {
 
 @media (display-mode: browser) {
   .svg-container svg {
-    max-width: 95% !important;
+    max-width: 98% !important;
     height: auto !important;
   }
 }

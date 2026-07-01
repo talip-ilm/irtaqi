@@ -52,29 +52,27 @@
 
   function cropToContent(container) {
     const svg = container.querySelector('svg');
-    const inner = container.querySelector('#md-page-inner');
-    if (!svg || !inner) return;
-    const rect = inner.getAttribute('data-rect');
-    if (!rect) return;
-    const [x1, y1, x2, y2] = rect.split(',').map(Number);
-    if ([x1, y1, x2, y2].some(isNaN)) return;
+    if (!svg) return;
 
-    let vx1 = x1, vy1 = y1, vx2 = x2, vy2 = y2;
-    const outer = container.querySelector('#md-page-outer');
-    if (outer) {
-      for (const child of outer.children) {
-        if (child.id.includes('margin')) continue;
-        try {
-          const bb = child.getBBox();
-          vx1 = Math.min(vx1, bb.x);
-          vy1 = Math.min(vy1, bb.y);
-          vx2 = Math.max(vx2, bb.x + bb.width);
-          vy2 = Math.max(vy2, bb.y + bb.height);
-        } catch (e) { /* element not renderable */ }
-      }
+    const targets = container.querySelectorAll('[id^="md-word-"], [id^="md-aya-mark-"]');
+    if (targets.length === 0) return;
+
+    let vx1 = Infinity, vy1 = Infinity, vx2 = -Infinity, vy2 = -Infinity;
+    for (const el of targets) {
+      try {
+        const bb = el.getBBox();
+        vx1 = Math.min(vx1, bb.x);
+        vy1 = Math.min(vy1, bb.y);
+        vx2 = Math.max(vx2, bb.x + bb.width);
+        vy2 = Math.max(vy2, bb.y + bb.height);
+      } catch (e) { }
     }
-    const PAD = 4;
-    svg.setAttribute('viewBox', `${vx1 - PAD} ${vy1 - PAD} ${vx2 - vx1 + PAD * 2} ${vy2 - vy1 + PAD * 2}`);
+
+    if (!isFinite(vx1)) return;
+    const GAP = 8;
+    svg.setAttribute('viewBox',
+      `${vx1 - GAP} ${vy1 - GAP} ${vx2 - vx1 + GAP * 2} ${vy2 - vy1 + GAP * 2}`
+    );
   }
 
   function getSVGAspect(svg) {
