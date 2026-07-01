@@ -111,7 +111,7 @@
     acquireWakeLock();
     document.addEventListener('visibilitychange', handleVisibility);
 
-    isTouchDevice = matchMedia('(hover: none) and (pointer: coarse)').matches;
+    isTouchDevice = matchMedia('(hover: none) and (pointer: coarse)').matches || 'ontouchstart' in window;
 
     const isNative = typeof window.Capacitor?.isNativePlatform === 'function' && window.Capacitor.isNativePlatform();
     if (isNative) {
