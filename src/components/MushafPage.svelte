@@ -73,21 +73,7 @@
         } catch (e) { /* element not renderable */ }
       }
     }
-    const extras = container.querySelectorAll(
-      '#md-non-quranic-page-number, ' +
-      '#md-non-quranic-header-surah-name, ' +
-      '#md-non-quranic-header-juz-name'
-    );
-    for (const el of extras) {
-      try {
-        const bb = el.getBBox();
-        vx1 = Math.min(vx1, bb.x);
-        vy1 = Math.min(vy1, bb.y);
-        vx2 = Math.max(vx2, bb.x + bb.width);
-        vy2 = Math.max(vy2, bb.y + bb.height);
-      } catch (e) { }
-    }
-    const PAD = 8;
+    const PAD = 4;
     svg.setAttribute('viewBox', `${vx1 - PAD} ${vy1 - PAD} ${vx2 - vx1 + PAD * 2} ${vy2 - vy1 + PAD * 2}`);
   }
 

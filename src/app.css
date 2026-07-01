@@ -69,7 +69,7 @@ html, body {
 
 @media (display-mode: browser) {
   .svg-container svg {
-    max-width: 88% !important;
+    max-width: 95% !important;
     height: auto !important;
   }
 }
@@ -117,6 +117,12 @@ html, body {
 }
 
 .svg-container [id^="md-non-quranic-margin"] {
+  display: none;
+}
+
+#md-non-quranic-header-surah-name,
+#md-non-quranic-header-juz-name,
+#md-non-quranic-page-number {
   display: none;
 }
 
