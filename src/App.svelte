@@ -98,6 +98,8 @@
     eyeOpen = localStorage.getItem('quran-eye-open') === 'true';
     darkTheme = localStorage.getItem('quran-dark-theme') !== 'false';
     document.documentElement.classList.toggle('light', !darkTheme);
+    const themeMeta = document.querySelector('meta[name="theme-color"]');
+    if (themeMeta) themeMeta.setAttribute('content', darkTheme ? '#000000' : '#f5f5f5');
 
     getSurahList().then((list) => { surahs = list; });
     loadingPage = true;
@@ -456,6 +458,8 @@
   function handleToggleTheme() {
     darkTheme = !darkTheme;
     document.documentElement.classList.toggle('light', !darkTheme);
+    const themeMeta = document.querySelector('meta[name="theme-color"]');
+    if (themeMeta) themeMeta.setAttribute('content', darkTheme ? '#000000' : '#f5f5f5');
     persistState();
   }
 
