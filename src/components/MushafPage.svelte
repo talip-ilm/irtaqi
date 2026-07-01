@@ -75,7 +75,7 @@
     }
 
     if (!isFinite(vx1)) return;
-    const GAP = 8;
+    const GAP = 4;
     svg.setAttribute('viewBox',
       `${vx1 - GAP} ${vy1 - GAP} ${vx2 - vx1 + GAP * 2} ${vy2 - vy1 + GAP * 2}`
     );
