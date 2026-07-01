@@ -54,11 +54,17 @@
     const svg = container.querySelector('svg');
     if (!svg) return;
 
-    const targets = container.querySelectorAll('[id^="md-word-"], [id^="md-aya-mark-"]');
+    const targets = container.querySelectorAll(
+      '[id^="md-word-"], ' +
+      '[id^="md-aya-mark-"], ' +
+      '[data-type="surah-name"]'
+    );
     if (targets.length === 0) return;
 
     let vx1 = Infinity, vy1 = Infinity, vx2 = -Infinity, vy2 = -Infinity;
     for (const el of targets) {
+      const id = el.getAttribute('id') || '';
+      if (id.startsWith('md-non-quranic-header') || id === 'md-non-quranic-page-number') continue;
       try {
         const bb = el.getBBox();
         vx1 = Math.min(vx1, bb.x);
