@@ -87,8 +87,6 @@
     document.documentElement.classList.toggle('light', !darkTheme);
     const themeMeta = document.querySelector('meta[name="theme-color"]');
     if (themeMeta) themeMeta.setAttribute('content', darkTheme ? '#000000' : '#f5f5f5');
-    const manifestLink = document.querySelector('link[rel="manifest"]');
-    if (manifestLink) manifestLink.setAttribute('href', darkTheme ? 'manifest.json' : 'manifest-light.json');
 
     getSurahList().then((list) => { surahs = list; });
     loadingPage = true;
@@ -465,8 +463,6 @@
     document.documentElement.classList.toggle('light', !darkTheme);
     const themeMeta = document.querySelector('meta[name="theme-color"]');
     if (themeMeta) themeMeta.setAttribute('content', darkTheme ? '#000000' : '#f5f5f5');
-    const manifestLink = document.querySelector('link[rel="manifest"]');
-    if (manifestLink) manifestLink.setAttribute('href', darkTheme ? 'manifest.json' : 'manifest-light.json');
     persistState();
   }
 
@@ -675,7 +671,6 @@
           </button>
         </div>
 
-        <button class="nav-menu-go nav-menu-go-danger" onclick={() => location.reload()}>Reload Page</button>
         <button class="nav-menu-go nav-menu-go-secondary" onclick={closeSettings}>Close</button>
       </div>
     </div>
